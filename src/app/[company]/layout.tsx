@@ -1,6 +1,22 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import HeaderActions from './HeaderActions'
+import type { Metadata } from 'next'
+
+export async function generateMetadata({ params }: { params: Promise<{ company: string }> }): Promise<Metadata> {
+  const companySlug = (await params).company
+  const supabase = await createClient()
+  const { data: company } = await supabase.from('companies').select('name').eq('slug', companySlug).single()
+
+  if (!company) {
+    return { title: 'Empresa no encontrada | OrganiSaaS' }
+  }
+
+  return {
+    title: `Portal RRHH - ${company.name}`,
+    description: `Portal de Recursos Humanos y Organigrama de ${company.name}`
+  }
+}
 
 export default async function CompanyLayout({
   children,
