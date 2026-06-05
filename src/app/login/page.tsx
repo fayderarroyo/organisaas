@@ -14,8 +14,17 @@ export default async function LoginPage({
   // Si ya está autenticado, redirigir
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+  
   if (user) {
-    return redirect('/admin')
+    const role = user.user_metadata?.role
+    if (role === 'superadmin') {
+      return redirect('/admin')
+    } else if (role === 'hr_admin' && user.user_metadata?.company_id) {
+      const { data: company } = await supabase.from('companies').select('slug').eq('id', user.user_metadata.company_id).single()
+      if (company) {
+        return redirect(`/${company.slug}/dashboard`)
+      }
+    }
   }
 
   return (
