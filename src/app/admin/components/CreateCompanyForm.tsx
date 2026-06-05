@@ -10,7 +10,7 @@ const initialState = {
 }
 
 export default function CreateCompanyForm() {
-  const [state, formAction, isPending] = useActionState(createCompany, initialState)
+  const [state, formAction, isPending] = useActionState(createCompany as any, initialState as any)
   const [isPublic, setIsPublic] = useState(true)
 
   return (

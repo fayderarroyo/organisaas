@@ -3,7 +3,7 @@ export function buildTree(employees: any[]) {
 
   // Mapa para acceso rápido a los nodos
   const employeeMap = new Map(employees.map(e => [e.id, { ...e, children: [] }]))
-  let root = null
+  let root: any = null
 
   // Construir jerarquía
   employeeMap.forEach(employee => {

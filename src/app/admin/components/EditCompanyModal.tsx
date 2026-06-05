@@ -10,7 +10,7 @@ const initialState = {
 }
 
 export default function EditCompanyModal({ isOpen, onClose, company }: { isOpen: boolean, onClose: () => void, company: any }) {
-  const [state, formAction, isPending] = useActionState(updateCompany, initialState)
+  const [state, formAction, isPending] = useActionState(updateCompany as any, initialState as any)
   const [isPublic, setIsPublic] = React.useState(true)
 
   useEffect(() => {
