@@ -115,7 +115,7 @@ const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete
   );
 };
 
-export default function ClientOrgChart({ companyId }: { companyId: string }) {
+export default function ClientOrgChart({ companyId, isAdmin }: { companyId: string, isAdmin: boolean }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -204,12 +204,14 @@ export default function ClientOrgChart({ companyId }: { companyId: string }) {
   return (
     <div className="w-full h-full bg-[#f8fafc] relative" ref={containerRef}>
       <div className="absolute top-4 right-6 flex gap-3 z-10">
-         <button 
-           onClick={() => setIsEditMode(!isEditMode)}
-           className={`border px-4 py-2 rounded-full shadow-md font-bold text-sm flex items-center gap-2 transition-colors ${isEditMode ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50'}`}
-         >
-            {isEditMode ? 'Terminar Edición' : '⚙️ Modo Edición'}
-         </button>
+         {isAdmin && (
+           <button 
+             onClick={() => setIsEditMode(!isEditMode)}
+             className={`border px-4 py-2 rounded-full shadow-md font-bold text-sm flex items-center gap-2 transition-colors ${isEditMode ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50'}`}
+           >
+              {isEditMode ? 'Terminar Edición' : '⚙️ Modo Edición'}
+           </button>
+         )}
       </div>
 
       {data && (
