@@ -20,7 +20,9 @@ export default async function LoginPage({
     if (role === 'superadmin') {
       return redirect('/admin')
     } else if (role === 'hr_admin' && user.user_metadata?.company_id) {
-      const { data: company } = await supabase.from('companies').select('slug').eq('id', user.user_metadata.company_id).single()
+      const { createAdminClient } = await import('@/utils/supabase/admin')
+      const adminSupabase = createAdminClient()
+      const { data: company } = await adminSupabase.from('companies').select('slug').eq('id', user.user_metadata.company_id).single()
       if (company) {
         return redirect(`/${company.slug}/dashboard`)
       }

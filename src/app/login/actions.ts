@@ -27,8 +27,10 @@ export async function login(formData: FormData) {
   if (role === 'superadmin') {
     return redirect('/admin')
   } else if (role === 'hr_admin' && user?.user_metadata?.company_id) {
-    // Buscar el slug de la empresa
-    const { data: company } = await supabase.from('companies').select('slug').eq('id', user.user_metadata.company_id).single()
+    // Buscar el slug de la empresa usando admin client para saltar RLS si es privada
+    const { createAdminClient } = await import('@/utils/supabase/admin')
+    const adminSupabase = createAdminClient()
+    const { data: company } = await adminSupabase.from('companies').select('slug').eq('id', user.user_metadata.company_id).single()
     if (company) {
       return redirect(`/${company.slug}/dashboard`)
     }
