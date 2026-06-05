@@ -18,13 +18,24 @@ export async function login(formData: FormData) {
     return redirect('/login?message=Could not authenticate user')
   }
 
-  // After login, we don't know the user's company slug yet.
-  // We should redirect them to a generic dashboard or check their company.
-  // For now, let's redirect to admin if they are the superadmin, or to a selector.
-  // The superadmin email is usually defined. Let's redirect to /admin by default,
-  // and the admin page will check permissions.
+  // Redireccionar según el rol
+  const { data: { user } } = await supabase.auth.getUser()
+  const role = user?.user_metadata?.role
+
   revalidatePath('/', 'layout')
-  redirect('/admin')
+  
+  if (role === 'superadmin') {
+    return redirect('/admin')
+  } else if (role === 'hr_admin' && user?.user_metadata?.company_id) {
+    // Buscar el slug de la empresa
+    const { data: company } = await supabase.from('companies').select('slug').eq('id', user.user_metadata.company_id).single()
+    if (company) {
+      return redirect(`/${company.slug}/dashboard`)
+    }
+  }
+
+  // Fallback
+  return redirect('/')
 }
 
 export async function signup(formData: FormData) {
