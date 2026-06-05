@@ -50,7 +50,8 @@ export async function createCompany(prevState: any, formData: FormData) {
       primary_color: primaryColor || '#16a34a', 
       logo_url: finalLogoUrl,
       is_public: isPublic,
-      viewer_password: viewerPassword || null
+      viewer_password: viewerPassword || null,
+      hr_email: email
     })
     .select()
     .single()
@@ -135,4 +136,44 @@ export async function updateCompany(prevState: any, formData: FormData) {
 
   revalidatePath('/admin')
   return { success: true, message: 'Empresa actualizada con éxito' }
+}
+
+export async function deleteCompany(companyId: string) {
+  const supabase = await createClient()
+  const adminAuthClient = createAdminClient()
+
+  // 1. Obtener la empresa para saber qué usuario (HR Admin) tiene asociado
+  const { data: company, error: getError } = await supabase
+    .from('companies')
+    .select('id')
+    .eq('id', companyId)
+    .single()
+
+  if (getError || !company) {
+    return { error: 'Empresa no encontrada' }
+  }
+
+  // 2. Buscar al usuario HR Admin de esta empresa para borrarlo de Supabase Auth
+  // Hacemos una consulta usando la API de admin
+  const { data: { users }, error: usersError } = await adminAuthClient.auth.admin.listUsers()
+  
+  if (!usersError && users) {
+    const hrUser = users.find(u => u.user_metadata?.company_id === companyId && u.user_metadata?.role === 'hr_admin')
+    if (hrUser) {
+      await adminAuthClient.auth.admin.deleteUser(hrUser.id)
+    }
+  }
+
+  // 3. Borrar la empresa de la base de datos (los empleados se borran solos si hay CASCADE, o los borramos manualmente si no)
+  // Por precaución borramos los empleados primero
+  await supabase.from('employees').delete().eq('company_id', companyId)
+  
+  const { error: deleteError } = await supabase.from('companies').delete().eq('id', companyId)
+  
+  if (deleteError) {
+    return { error: 'Error borrando la empresa: ' + deleteError.message }
+  }
+
+  revalidatePath('/admin')
+  return { success: true }
 }

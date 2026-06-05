@@ -13,11 +13,8 @@ export default async function CompanyLayout({
 
   const supabase = await createClient()
   
-  // 1. Verificar Autenticación
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) {
-    redirect('/login')
-  }
+  // 1. Obtener usuario (sin redirigir si no existe, ya que las vistas públicas lo manejan)
+  const { data: { user } } = await supabase.auth.getUser()
 
   // 2. Obtener datos de la empresa por su slug
   const { data: company, error: companyError } = await supabase
@@ -63,7 +60,9 @@ export default async function CompanyLayout({
             </div>
           </div>
 
-          <HeaderActions email={user.email || ''} />
+          {user && (
+            <HeaderActions email={company.hr_email || user.email || ''} />
+          )}
         </div>
       </header>
 

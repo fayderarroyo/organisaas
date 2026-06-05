@@ -1,11 +1,24 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Building2, Users } from 'lucide-react'
+import { Building2, Users, Trash2 } from 'lucide-react'
 import EditCompanyModal from './EditCompanyModal'
+import { deleteCompany } from '../actions'
 
 export default function CompanyList({ companies }: { companies: any[] }) {
   const [editingCompany, setEditingCompany] = useState<any>(null)
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+
+  const handleDelete = async (company: any) => {
+    if (window.confirm(`¿Estás seguro de que deseas ELIMINAR la empresa "${company.name}"?\n\nEsta acción borrará a todos sus empleados, organigrama y eliminará el usuario del administrador de RRHH.\n¡Esta acción es IRREVERSIBLE!`)) {
+      setIsDeleting(company.id)
+      const res = await deleteCompany(company.id)
+      if (res.error) {
+        alert(res.error)
+      }
+      setIsDeleting(null)
+    }
+  }
 
   if (!companies || companies.length === 0) {
     return (
@@ -38,18 +51,28 @@ export default function CompanyList({ companies }: { companies: any[] }) {
                   </span>
                 </div>
               </div>
-              <button 
-                onClick={() => setEditingCompany(company)}
-                className="text-gray-400 hover:text-gray-900 transition-colors p-1"
-                title="Editar Empresa"
-              >
-                ⚙️
-              </button>
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setEditingCompany(company)}
+                  className="text-gray-400 hover:text-gray-900 transition-colors p-1"
+                  title="Editar Empresa"
+                >
+                  ⚙️
+                </button>
+                <button 
+                  onClick={() => handleDelete(company)}
+                  disabled={isDeleting === company.id}
+                  className="text-red-300 hover:text-red-600 transition-colors p-1"
+                  title="Eliminar Empresa"
+                >
+                  {isDeleting === company.id ? '...' : <Trash2 className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             
             <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-sm">
               <span className="flex items-center gap-1.5 text-gray-500 font-medium">
-                <Users className="w-4 h-4 text-gray-400"/> Admin asignado
+                <Users className="w-4 h-4 text-gray-400"/> {company.hr_email || 'Sin admin asignado'}
               </span>
               <a href={`/${company.slug}/dashboard`} className="text-gray-900 font-bold hover:text-green-700 transition-colors flex items-center gap-1">
                 Ver App <span className="text-lg leading-none">→</span>
