@@ -200,16 +200,13 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const [isEditAction, setIsEditAction] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
-  // CSS-transform based pan state (independent of D3 internal state)
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const [scale, setScale] = useState(1);
-  const touchRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
-  const isDraggingRef = useRef(false);
-  const lastTapRef = useRef<{ id: string; x?: number; y?: number } | null>(null);
-  // Flag to know if we are on mobile
+  // CSS-transform based pan/zoom state for mobile (independent of D3)
+  const panRef = useRef({ x: 0, y: 0, scale: 0.5 });
+  const [panState, setPanState] = useState({ x: 0, y: 0, scale: 0.5 });
+  const touchRef = useRef<{ sx: number; sy: number; px: number; py: number; dist: number } | null>(null);
   const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 
   const fetchEmployees = async () => {
@@ -243,16 +240,12 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   useEffect(() => {
     const mobile = isMobile();
     const w = typeof window !== 'undefined' ? window.innerWidth : 800;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 600;
     if (mobile) {
-      // On mobile: Tree stays at fixed center, CSS transform handles pan
       setTranslate({ x: w / 2, y: 120 });
-      setZoom(1); // zoom=1 because CSS scale handles it
-      setScale(mobile ? 0.5 : 1);
-      setPanX(0);
-      setPanY(0);
+      setZoom(1);
+      panRef.current = { x: 0, y: 0, scale: 0.5 };
+      setPanState({ x: 0, y: 0, scale: 0.5 });
     } else {
-      // Desktop: let D3 handle pan/zoom as before
       const containerW = containerRef.current?.getBoundingClientRect().width || w;
       setTranslate({ x: containerW / 2, y: 100 });
       setZoom(0.8);
@@ -261,30 +254,77 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  // Touch handlers for mobile pan (update CSS transform, not D3 state)
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isMobile()) return;
-    if (e.touches.length === 1) {
-      isDraggingRef.current = false;
-      touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: panX, py: panY };
-    }
-  };
+  // ─── Native DOM touch listeners (MUST be non-passive to call preventDefault on iOS Safari) ───
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !isMobile()) return;
 
-  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
-    if (!isMobile() || !touchRef.current || e.touches.length !== 1) return;
-    const dx = e.touches[0].clientX - touchRef.current.x;
-    const dy = e.touches[0].clientY - touchRef.current.y;
-    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
-      isDraggingRef.current = true;
-      e.preventDefault();
-      setPanX(touchRef.current.px + dx);
-      setPanY(touchRef.current.py + dy);
-    }
-  };
+    const applyTransform = () => {
+      if (wrapperRef.current) {
+        const p = panRef.current;
+        wrapperRef.current.style.transform = `translate(${p.x}px, ${p.y}px) scale(${p.scale})`;
+      }
+    };
 
-  const handleTouchEnd = () => {
-    touchRef.current = null;
-  };
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        const t = e.touches[0];
+        touchRef.current = { sx: t.clientX, sy: t.clientY, px: panRef.current.x, py: panRef.current.y, dist: 0 };
+      } else if (e.touches.length === 2) {
+        // Pinch start: compute initial distance
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (touchRef.current) {
+          touchRef.current.dist = dist;
+        } else {
+          touchRef.current = { sx: 0, sy: 0, px: panRef.current.x, py: panRef.current.y, dist };
+        }
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchRef.current) return;
+      e.preventDefault(); // THIS works because listener is { passive: false }
+
+      if (e.touches.length === 1) {
+        // Single finger pan
+        const t = e.touches[0];
+        panRef.current.x = touchRef.current.px + (t.clientX - touchRef.current.sx);
+        panRef.current.y = touchRef.current.py + (t.clientY - touchRef.current.sy);
+        applyTransform();
+      } else if (e.touches.length === 2 && touchRef.current.dist > 0) {
+        // Pinch zoom
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const ratio = dist / touchRef.current.dist;
+        const newScale = Math.max(0.15, Math.min(2, panRef.current.scale * ratio));
+        panRef.current.scale = newScale;
+        touchRef.current.dist = dist; // reset baseline
+        applyTransform();
+      }
+    };
+
+    const onTouchEnd = () => {
+      touchRef.current = null;
+      // Sync back to React state (for re-renders from toggle, etc.)
+      setPanState({ ...panRef.current });
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleToggle = (nodeId: string, nodeX?: number, nodeY?: number) => {
     const mobile = isMobile();
@@ -293,19 +333,18 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       const isExpanding = !next.has(nodeId);
       if (isExpanding) {
         next.add(nodeId);
-        // Center the tapped node
         if (nodeX !== undefined && nodeY !== undefined) {
           if (mobile) {
-            // On mobile we use CSS transform pan: center the node
             const w = window.innerWidth;
             const h = window.innerHeight;
-            // nodeX/nodeY are D3 tree coords, translate is center of SVG
-            // The node renders at (translate.x + nodeX*scale, translate.y + nodeY*scale) on screen
-            // We want that to be at (w/2, h/3)
-            const nodeScreenX = translate.x + nodeX * scale;
-            const nodeScreenY = translate.y + nodeY * scale;
-            setPanX(prev => prev + (w / 2 - nodeScreenX));
-            setPanY(prev => prev + (h / 3 - nodeScreenY));
+            const s = panRef.current.scale;
+            // In CSS transform world: screen pos = panX + (translate.x + nodeX) * scale
+            // We want screen pos = w/2 horizontally, h/3 vertically
+            const newPanX = (w / 2) - (translate.x + nodeX) * s;
+            const newPanY = (h / 3) - (translate.y + nodeY) * s;
+            panRef.current.x = newPanX;
+            panRef.current.y = newPanY;
+            setPanState({ ...panRef.current });
           } else {
             const targetZoom = getDefaultZoom();
             const containerW = containerRef.current?.getBoundingClientRect().width || window.innerWidth;
@@ -325,8 +364,8 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     setExpandedNodes(new Set());
     const mobile = isMobile();
     if (mobile) {
-      setPanX(0);
-      setPanY(0);
+      panRef.current = { x: 0, y: 0, scale: 0.5 };
+      setPanState({ x: 0, y: 0, scale: 0.5 });
     } else {
       const containerW = containerRef.current?.getBoundingClientRect().width || window.innerWidth;
       setTranslate({ x: containerW / 2, y: 100 });
@@ -346,9 +385,8 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     setExpandedNodes(allIds);
     const mobile = isMobile();
     if (mobile) {
-      setPanX(0);
-      setPanY(0);
-      setScale(0.25);
+      panRef.current = { x: 0, y: 0, scale: 0.25 };
+      setPanState({ x: 0, y: 0, scale: 0.25 });
     } else {
       const containerW = containerRef.current?.getBoundingClientRect().width || window.innerWidth;
       setTranslate({ x: containerW / 2, y: 100 });
@@ -407,9 +445,6 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     <div
       className="w-full h-full bg-[#f8fafc] relative overflow-hidden"
       ref={containerRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       style={{ touchAction: 'none' }}
     >
       <div className="absolute top-2 sm:top-4 left-0 w-full px-2 sm:px-4 flex flex-wrap justify-center sm:justify-end gap-2 z-10 pointer-events-none">
@@ -437,10 +472,11 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
 
       {displayData && (
         <div
+          ref={wrapperRef}
           style={{
             position: 'absolute',
             inset: 0,
-            transform: isMobile() ? `translate(${panX}px, ${panY}px) scale(${scale})` : undefined,
+            transform: isMobile() ? `translate(${panState.x}px, ${panState.y}px) scale(${panState.scale})` : undefined,
             transformOrigin: '0 0',
             willChange: 'transform',
           }}
