@@ -33,6 +33,13 @@ const roundedStepPathFunc = (linkData: any) => {
 };
 
 const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete }: any) => {
+  // Autodesplegar nodos fantasmas si quedaron colapsados al ocultar a su padre
+  useEffect(() => {
+    if (nodeDatum.attributes?.is_invisible_dummy && nodeDatum.__rd3t?.collapsed) {
+      toggleNode();
+    }
+  }, [nodeDatum.attributes?.is_invisible_dummy, nodeDatum.__rd3t?.collapsed, toggleNode]);
+
   if (nodeDatum.attributes?.is_invisible_dummy) {
     return <g></g>;
   }
