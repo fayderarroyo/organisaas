@@ -211,7 +211,12 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const [rawData, setRawData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [translate, setTranslate] = useState({ x: 500, y: 100 });
+  const [translate, setTranslate] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return { x: window.innerWidth / 2, y: 100 };
+    }
+    return { x: 300, y: 100 };
+  });
   const [zoom, setZoom] = useState(1);
   const [treeKey, setTreeKey] = useState(0);
   
@@ -256,14 +261,18 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const getExpandZoom = () => typeof window !== 'undefined' && window.innerWidth < 768 ? 0.25 : 0.35;
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && containerRef.current) {
+    fetchEmployees();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!loading && containerRef.current) {
       const { width } = containerRef.current.getBoundingClientRect();
       setTranslate({ x: width / 2, y: 100 });
       setZoom(getDefaultZoom());
     }
-    fetchEmployees();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId]);
+  }, [loading]);
 
   const handleToggle = (nodeId: string, nodeX?: number, nodeY?: number) => {
     setExpandedNodes(prev => {
