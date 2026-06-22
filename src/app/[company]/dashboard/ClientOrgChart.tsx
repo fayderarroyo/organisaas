@@ -296,8 +296,8 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
           orientation="vertical"
           pathFunc={roundedStepPathFunc}
           translate={translate}
-          nodeSize={{ x: 260, y: 320 }}
-          separation={{ siblings: 1.1, nonSiblings: 1.25 }}
+          nodeSize={{ x: 230, y: 280 }}
+          separation={{ siblings: 1.05, nonSiblings: 1.2 }}
           renderCustomNodeElement={(rd3tProps) => (
             <CustomNode 
               {...rd3tProps} 
