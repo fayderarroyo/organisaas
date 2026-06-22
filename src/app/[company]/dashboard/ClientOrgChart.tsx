@@ -230,6 +230,23 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     setTreeKey(prev => prev + 1);
   };
 
+  const handleCollapseAll = () => {
+    setExpandedNodes(new Set());
+    setTreeKey(prev => prev + 1);
+  };
+
+  const handleExpandAll = () => {
+    if (!rawData) return;
+    const allIds = new Set<string>();
+    const extractIds = (node: any) => {
+      allIds.add(node.id);
+      if (node.children) node.children.forEach(extractIds);
+    };
+    rawData.forEach(extractIds);
+    setExpandedNodes(allIds);
+    setTreeKey(prev => prev + 1);
+  };
+
   const handleAdd = (parentId: string) => {
     setIsEditAction(false);
     setModalData({ parentId: parentId === 'dummy' ? null : parentId });
@@ -279,6 +296,18 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   return (
     <div className="w-full h-full bg-[#f8fafc] relative" ref={containerRef}>
       <div className="absolute top-4 right-6 flex gap-3 z-10">
+         <button 
+           onClick={handleExpandAll}
+           className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-full shadow-md font-bold text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+         >
+           ↓ Desplegar todo
+         </button>
+         <button 
+           onClick={handleCollapseAll}
+           className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-full shadow-md font-bold text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+         >
+           ↑ Contraer todo
+         </button>
          {isAdmin && (
            <button 
              onClick={() => setIsEditMode(!isEditMode)}
