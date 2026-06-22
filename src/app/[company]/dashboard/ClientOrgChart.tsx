@@ -41,7 +41,13 @@ const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete
   }, [nodeDatum.attributes?.is_invisible_dummy, nodeDatum.__rd3t?.collapsed, toggleNode]);
 
   if (nodeDatum.attributes?.is_invisible_dummy) {
-    return <g></g>;
+    // Retornamos un círculo casi invisible con opacity 0 para que D3 no crashee
+    // al intentar animar (transición) un elemento vacío (<g></g>) sin dimensiones.
+    return (
+      <g>
+        <circle r={0.1} opacity={0} fill="transparent" stroke="none" />
+      </g>
+    );
   }
 
   const hasChildren = nodeDatum.children && nodeDatum.children.length > 0;
