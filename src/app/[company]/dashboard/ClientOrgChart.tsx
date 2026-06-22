@@ -60,7 +60,7 @@ function filterExpanded(node: any, expanded: Set<string>): any {
   };
 }
 
-const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes: expandedNodes }: any) => {
+const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes: expandedNodes }: any) => {
   // Nodos fantasmas: totalmente invisibles
   if (nodeDatum.attributes?.is_invisible_dummy) {
     return (
@@ -78,7 +78,7 @@ const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, 
     <g>
       <foreignObject x="-110" y="-120" width="220" height="280">
         <div 
-          onClick={isEditMode ? undefined : () => onToggle(nodeDatum.id)}
+          onClick={isEditMode ? undefined : () => onToggle(nodeDatum.id, hierarchyPointNode?.x, hierarchyPointNode?.y)}
           className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 cursor-pointer hover:shadow-xl transition-all duration-300 border-[var(--brand-color)]"
         >
           {hasChildren && !isEditMode && (
@@ -208,16 +208,24 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     fetchEmployees();
   }, [companyId, supabase]);
 
-  const handleToggle = (nodeId: string) => {
+  const handleToggle = (nodeId: string, nodeX?: number, nodeY?: number) => {
     setExpandedNodes(prev => {
       const next = new Set(prev);
-      if (next.has(nodeId)) {
-        next.delete(nodeId); // colapsar
-      } else {
+      const isExpanding = !next.has(nodeId);
+      
+      if (isExpanding) {
         next.add(nodeId); // expandir
+        // Si estamos expandiendo y tenemos coordenadas, centramos el nodo
+        if (nodeX !== undefined && nodeY !== undefined && typeof window !== 'undefined') {
+          // Centrado horizontal, y dejado a 100px del borde superior
+          setTranslate({ x: window.innerWidth / 2 - nodeX, y: 100 - nodeY });
+        }
+      } else {
+        next.delete(nodeId); // colapsar
       }
       return next;
     });
+
     // Re-render del árbol con los datos filtrados actualizados
     setTreeKey(prev => prev + 1);
   };
