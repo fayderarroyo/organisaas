@@ -34,7 +34,7 @@ const roundedStepPathFunc = (linkData: any) => {
 
 const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete }: any) => {
   if (nodeDatum.attributes?.is_invisible_dummy) {
-    return <circle r={1} fill="transparent" />;
+    return <g></g>;
   }
 
   const hasChildren = nodeDatum.children && nodeDatum.children.length > 0;
