@@ -19,9 +19,14 @@ export function buildTree(employees: any[]) {
     } else {
       const parent = employeeMap.get(employee.parent_id)
       if (parent) {
-        const parentLvl = getLevelNum(parent.hierarchy_level);
+        // El usuario indicó que el nivel se reinicia con cada subalterno.
+        // Esto significa que el "Nivel X" asignado es directamente la DISTANCIA respecto al jefe.
+        // Nivel 1 = 1 salto (0 dummies). Nivel 2 = 2 saltos (1 dummy).
         const childLvl = getLevelNum(employee.hierarchy_level);
-        const diff = childLvl - parentLvl;
+        let diff = childLvl;
+        
+        // Si por alguna razón es 0 o menor, mínimo debe haber 1 salto físico (es subalterno)
+        if (diff < 1) diff = 1;
 
         if (diff > 1) {
           let currentParent = parent;
