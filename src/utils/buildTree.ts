@@ -19,28 +19,26 @@ export function buildTree(employees: any[]) {
     } else {
       const parent = employeeMap.get(employee.parent_id)
       if (parent) {
-        // El usuario indicó que el nivel se reinicia con cada subalterno.
-        // Esto significa que el "Nivel X" asignado es directamente la DISTANCIA respecto al jefe.
-        // Nivel 1 = 1 salto (0 dummies). Nivel 2 = 2 saltos (1 dummy).
+        // El nivel indica cuántos saltos visuales hay entre el jefe y este empleado.
+        // Nivel 1 = 1 salto directo. Nivel 2 = 2 saltos (1 nodo fantasma intermedio).
         const childLvl = getLevelNum(employee.hierarchy_level);
         let diff = childLvl;
-        
-        // Si por alguna razón es 0 o menor, mínimo debe haber 1 salto físico (es subalterno)
+
+        // Si es 0 o sin nivel, hacemos un salto directo
         if (diff < 1) diff = 1;
 
         if (diff > 1) {
           let currentParent = parent;
-          // Inyectar (diff - 1) nodos falsos
+          // Inyectar (diff - 1) nodos fantasmas
           for (let i = 1; i < diff; i++) {
             const dummyId = `dummy_${parent.id}_${employee.id}_${i}`;
-            const dummyNode = { 
-              id: dummyId, 
-              name: 'Invisible', 
-              is_invisible_dummy: true, 
+            const dummyNode = {
+              id: dummyId,
+              name: 'Invisible',
+              is_invisible_dummy: true,
+              _hasChildren: true,
               children: [],
               parent_id: currentParent.id,
-              // Forzar siempre expandido para que react-d3-tree nunca lo colapse
-              __rd3t: { collapsed: false, depth: 0, id: dummyId }
             };
             currentParent.children.push(dummyNode);
             currentParent = dummyNode;
@@ -50,35 +48,42 @@ export function buildTree(employees: any[]) {
           parent.children.push(employee);
         }
       } else {
-        // Fallback: Si el padre no existe, lo hacemos huérfano colgando de root (o él mismo root si no hay root)
+        // Fallback: huérfano colgando de root
         if (!root) root = employee
         else root.children.push(employee)
       }
     }
   })
 
-  // Transformar al formato exacto que espera react-d3-tree
-  const formatNode = (node: any): any => {
-    const formatted: any = {
-      name: node.name,
-      attributes: {
-        idEmpleado: node.id,
-        cargo: node.position,
-        hierarchy_level: node.hierarchy_level,
-        fotoUrl: node.photo_url,
-        is_invisible_dummy: node.is_invisible_dummy
-      },
-      // Necesario para que d3-tree mantenga referencias originales si queremos editar
-      id: node.id,
-      parentId: node.parent_id,
-      children: node.children.map(formatNode)
-    };
-    // Preservar __rd3t si fue definido (para forzar nodos fantasmas siempre expandidos)
-    if (node.__rd3t) {
-      formatted.__rd3t = node.__rd3t;
+  // Marcar _hasChildren en cada nodo (true si tiene hijos reales directos o a través de dummies)
+  const markHasChildren = (node: any): boolean => {
+    if (node.is_invisible_dummy) {
+      return node.children.some((c: any) => markHasChildren(c));
     }
-    return formatted;
-  }
+    const realChildren = node.children.filter((c: any) => !c.is_invisible_dummy);
+    const dummyChildren = node.children.filter((c: any) => c.is_invisible_dummy);
+    const hasDirectReal = realChildren.length > 0;
+    const hasDummyReal = dummyChildren.some((d: any) => markHasChildren(d));
+    node._hasChildren = hasDirectReal || hasDummyReal;
+    return node._hasChildren;
+  };
+  if (root) markHasChildren(root);
+
+  // Transformar al formato exacto que espera react-d3-tree
+  const formatNode = (node: any): any => ({
+    name: node.name,
+    attributes: {
+      idEmpleado: node.id,
+      cargo: node.position,
+      hierarchy_level: node.hierarchy_level,
+      fotoUrl: node.photo_url,
+      is_invisible_dummy: node.is_invisible_dummy ?? false,
+      _hasChildren: node._hasChildren ?? false,
+    },
+    id: node.id,
+    parentId: node.parent_id,
+    children: node.children.map(formatNode)
+  })
 
   return root ? formatNode(root) : null
 }

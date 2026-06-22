@@ -9,18 +9,6 @@ import EmployeeModal from './EmployeeModal';
 
 const Tree = dynamic(() => import('react-d3-tree'), { ssr: false });
 
-// Forzar expansión recursiva de todos los nodos fantasmas en el árbol
-function forceExpandDummies(node: any): void {
-  if (!node) return;
-  if (node.attributes?.is_invisible_dummy && node.__rd3t?.collapsed) {
-    node.__rd3t.collapsed = false;
-  }
-  if (node.children) node.children.forEach(forceExpandDummies);
-  if (node._children) {
-    node._children.forEach(forceExpandDummies);
-  }
-}
-
 const roundedStepPathFunc = (linkData: any) => {
   const { source, target } = linkData;
   const deltaY = target.y - source.y;
@@ -44,17 +32,35 @@ const roundedStepPathFunc = (linkData: any) => {
   `;
 };
 
-const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete }: any) => {
-  // Autodesplegar nodos fantasmas si quedaron colapsados al ocultar a su padre
-  useEffect(() => {
-    if (nodeDatum.attributes?.is_invisible_dummy && nodeDatum.__rd3t?.collapsed) {
-      toggleNode();
-    }
-  }, [nodeDatum.attributes?.is_invisible_dummy, nodeDatum.__rd3t?.collapsed, toggleNode]);
+// Filtra el árbol ocultando hijos de nodos colapsados.
+// Los nodos fantasmas NUNCA se colapsan: siempre se muestran como transparentes.
+function filterCollapsed(node: any, collapsed: Set<string>): any {
+  if (!node) return null;
 
+  // Los nodos fantasmas siempre se pasan con sus hijos (nunca se colapsan)
+  if (node.attributes?.is_invisible_dummy) {
+    return {
+      ...node,
+      children: (node.children || []).map((c: any) => filterCollapsed(c, collapsed))
+    };
+  }
+
+  const isCollapsed = collapsed.has(node.id);
+
+  if (isCollapsed) {
+    // Devolver sin hijos
+    return { ...node, children: [] };
+  }
+
+  return {
+    ...node,
+    children: (node.children || []).map((c: any) => filterCollapsed(c, collapsed))
+  };
+}
+
+const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes }: any) => {
+  // Nodos fantasmas: totalmente invisibles
   if (nodeDatum.attributes?.is_invisible_dummy) {
-    // Retornamos un círculo casi invisible con opacity 0 para que D3 no crashee
-    // al intentar animar (transición) un elemento vacío (<g></g>) sin dimensiones.
     return (
       <g>
         <circle r={0.1} opacity={0} fill="transparent" stroke="none" />
@@ -62,19 +68,20 @@ const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete
     );
   }
 
-  const hasChildren = nodeDatum.children && nodeDatum.children.length > 0;
+  const hasChildren = nodeDatum.attributes?._hasChildren;
+  const isCollapsed = collapsedNodes?.has(nodeDatum.id);
   const isDummy = nodeDatum.id === 'dummy';
 
   return (
     <g>
       <foreignObject x="-110" y="-120" width="220" height="280">
         <div 
-          onClick={isEditMode ? undefined : toggleNode}
+          onClick={isEditMode ? undefined : () => onToggle(nodeDatum.id)}
           className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 cursor-pointer hover:shadow-xl transition-all duration-300 border-[var(--brand-color)]"
         >
           {hasChildren && !isEditMode && (
             <div className="absolute -top-3 -right-3 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold border-2 border-gray-200 shadow-sm">
-              {nodeDatum.children.length}
+              {/* badge count - leave empty for now */}
             </div>
           )}
 
@@ -135,7 +142,7 @@ const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete
           {hasChildren && !isEditMode && (
             <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-gray-800 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {nodeDatum.__rd3t.collapsed ? (
+                {isCollapsed ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12M6 12h12" />
                 ) : (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
@@ -150,12 +157,15 @@ const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete
 };
 
 export default function ClientOrgChart({ companyId, isAdmin }: { companyId: string, isAdmin: boolean }) {
-  const [data, setData] = useState<any>(null);
+  const [rawData, setRawData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [translate, setTranslate] = useState({ x: 500, y: 100 });
   const [treeKey, setTreeKey] = useState(0);
   
+  // Nuestro propio estado de colapso (no usamos el de react-d3-tree)
+  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalData, setModalData] = useState<any>(null);
@@ -173,15 +183,15 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
 
     if (!error && employees) {
       if (employees.length === 0) {
-        setData([{
+        setRawData([{
            id: 'dummy',
            name: 'Haz clic aquí para añadir tu primer empleado',
-           attributes: { cargo: 'Director General' },
+           attributes: { cargo: 'Director General', _hasChildren: false },
            children: []
         }]);
       } else {
         const treeData = buildTree(employees);
-        setData([treeData]);
+        setRawData(treeData ? [treeData] : null);
       }
     }
     setTreeKey(prev => prev + 1);
@@ -194,6 +204,20 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     }
     fetchEmployees();
   }, [companyId, supabase]);
+
+  const handleToggle = (nodeId: string) => {
+    setCollapsedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+    // Incrementar key para forzar re-render del árbol con los datos filtrados
+    setTreeKey(prev => prev + 1);
+  };
 
   const handleAdd = (parentId: string) => {
     setIsEditAction(false);
@@ -232,7 +256,12 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     fetchEmployees();
   };
 
-  if (loading && !data) {
+  // Aplicar filtro de colapso a los datos crudos
+  const displayData = rawData
+    ? rawData.map((root: any) => filterCollapsed(root, collapsedNodes))
+    : null;
+
+  if (loading && !rawData) {
     return <div className="w-full h-full flex items-center justify-center">Cargando jerarquía...</div>;
   }
 
@@ -249,10 +278,10 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
          )}
       </div>
 
-      {data && (
+      {displayData && (
         <Tree
           key={treeKey}
-          data={data}
+          data={displayData}
           orientation="vertical"
           pathFunc={roundedStepPathFunc}
           translate={translate}
@@ -265,17 +294,14 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
               onAdd={handleAdd}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onToggle={handleToggle}
+              collapsedNodes={collapsedNodes}
             />
           )}
           zoomable={true}
-          collapsible={true}
+          collapsible={false}
           enableLegacyTransitions={true}
           transitionDuration={500}
-          onUpdate={({ node }: any) => {
-            // Cada vez que se actualiza el árbol, forzamos que los nodos fantasmas
-            // se mantengan siempre expandidos
-            if (node) forceExpandDummies(node);
-          }}
         />
       )}
 
