@@ -55,17 +55,23 @@ export function buildTree(employees: any[]) {
     }
   })
 
-  // Marcar _hasChildren en cada nodo (true si tiene hijos reales directos o a través de dummies)
-  const markHasChildren = (node: any): boolean => {
+  // Marcar _hasChildren en cada nodo real de forma recursiva
+  const hasRealDescendant = (node: any): boolean => {
+    if (!node.is_invisible_dummy) return true; // este mismo es un nodo real
+    return node.children.some(hasRealDescendant);
+  };
+
+  const markHasChildren = (node: any): void => {
+    if (!node) return;
     if (node.is_invisible_dummy) {
-      return node.children.some((c: any) => markHasChildren(c));
+      // Los nodos fantasmas no necesitan _hasChildren, solo recurrir
+      node.children.forEach(markHasChildren);
+      return;
     }
-    const realChildren = node.children.filter((c: any) => !c.is_invisible_dummy);
-    const dummyChildren = node.children.filter((c: any) => c.is_invisible_dummy);
-    const hasDirectReal = realChildren.length > 0;
-    const hasDummyReal = dummyChildren.some((d: any) => markHasChildren(d));
-    node._hasChildren = hasDirectReal || hasDummyReal;
-    return node._hasChildren;
+    // Un nodo real tiene hijos si alguno de sus children directos (o a través de dummies) es real
+    node._hasChildren = node.children.some(hasRealDescendant);
+    // Recurrir en todos los hijos para que también queden marcados
+    node.children.forEach(markHasChildren);
   };
   if (root) markHasChildren(root);
 
