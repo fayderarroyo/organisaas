@@ -79,7 +79,8 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
       <foreignObject x="-110" y="-120" width="220" height="280">
         <div 
           onClick={isEditMode ? undefined : () => onToggle(nodeDatum.id, hierarchyPointNode?.x, hierarchyPointNode?.y)}
-          className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 cursor-pointer hover:shadow-xl transition-all duration-300 border-[var(--brand-color)]"
+          className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 cursor-pointer hover:shadow-xl transition-all duration-300 border-[var(--brand-color)] touch-none select-none"
+          style={{ touchAction: 'none' }}
         >
           {hasChildren && !isEditMode && (
             <div className="absolute -top-3 -right-3 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold border-2 border-gray-200 shadow-sm">
@@ -225,8 +226,9 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
         // Si estamos expandiendo y tenemos coordenadas, centramos el nodo
         if (nodeX !== undefined && nodeY !== undefined && containerRef.current) {
           const { width } = containerRef.current.getBoundingClientRect();
-          setTranslate({ x: width / 2 - nodeX, y: 100 - nodeY });
-          setZoom(getDefaultZoom()); // Nivel de zoom estándar al navegar
+          const targetZoom = getDefaultZoom();
+          setTranslate({ x: width / 2 - (nodeX! * targetZoom), y: 100 - (nodeY! * targetZoom) });
+          setZoom(targetZoom); // Nivel de zoom estándar al navegar
         }
       } else {
         next.delete(nodeId); // colapsar
