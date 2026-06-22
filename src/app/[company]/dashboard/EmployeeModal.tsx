@@ -217,13 +217,13 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 outline-none"
                 >
                   <option value="" disabled>Selecciona un nivel...</option>
-                  <option value="Nivel 0 = Gerente General - CEO">Nivel 0 = Gerente General - CEO</option>
-                  <option value="Nivel 1 = Gerentes">Nivel 1 = Gerentes</option>
-                  <option value="Nivel 2 = Jefes">Nivel 2 = Jefes</option>
-                  <option value="Nivel 3 = Coordinadores">Nivel 3 = Coordinadores</option>
-                  <option value="Nivel 4 = Asistentes">Nivel 4 = Asistentes</option>
-                  <option value="Nivel 5 = Auxiliares">Nivel 5 = Auxiliares</option>
-                  <option value="Nivel 6 = Operativos">Nivel 6 = Operativos</option>
+                  <option value="Nivel 0">Nivel 0 (CEO / Gerente General)</option>
+                  <option value="Nivel 1">Nivel 1 (Gerentes / Directores)</option>
+                  <option value="Nivel 2">Nivel 2 (Jefes / Encargados)</option>
+                  <option value="Nivel 3">Nivel 3 (Coordinadores)</option>
+                  <option value="Nivel 4">Nivel 4 (Asistentes)</option>
+                  <option value="Nivel 5">Nivel 5 (Auxiliares)</option>
+                  <option value="Nivel 6">Nivel 6 (Operativos)</option>
                 </select>
               </div>
 
