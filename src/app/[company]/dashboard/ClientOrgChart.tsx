@@ -163,6 +163,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [translate, setTranslate] = useState({ x: 500, y: 100 });
+  const [zoom, setZoom] = useState(0.8);
   const [treeKey, setTreeKey] = useState(0);
   
   // Estado de expansión: los nodos en este Set están abiertos (muestran sus hijos directos).
@@ -216,9 +217,10 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       if (isExpanding) {
         next.add(nodeId); // expandir
         // Si estamos expandiendo y tenemos coordenadas, centramos el nodo
-        if (nodeX !== undefined && nodeY !== undefined && typeof window !== 'undefined') {
-          // Centrado horizontal, y dejado a 100px del borde superior
-          setTranslate({ x: window.innerWidth / 2 - nodeX, y: 100 - nodeY });
+        if (nodeX !== undefined && nodeY !== undefined && containerRef.current) {
+          const { width } = containerRef.current.getBoundingClientRect();
+          setTranslate({ x: width / 2 - nodeX, y: 100 - nodeY });
+          setZoom(0.8); // Nivel de zoom estándar al navegar
         }
       } else {
         next.delete(nodeId); // colapsar
@@ -232,8 +234,10 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
 
   const handleCollapseAll = () => {
     setExpandedNodes(new Set());
-    if (typeof window !== 'undefined') {
-      setTranslate({ x: window.innerWidth / 2, y: 100 });
+    if (containerRef.current) {
+      const { width } = containerRef.current.getBoundingClientRect();
+      setTranslate({ x: width / 2, y: 100 });
+      setZoom(0.8);
     }
     setTreeKey(prev => prev + 1);
   };
@@ -247,8 +251,10 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     };
     rawData.forEach(extractIds);
     setExpandedNodes(allIds);
-    if (typeof window !== 'undefined') {
-      setTranslate({ x: window.innerWidth / 2, y: 100 });
+    if (containerRef.current) {
+      const { width } = containerRef.current.getBoundingClientRect();
+      setTranslate({ x: width / 2, y: 100 });
+      setZoom(0.35); // Hacer un zoom out grande para ver todo el organigrama
     }
     setTreeKey(prev => prev + 1);
   };
@@ -331,6 +337,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
           orientation="vertical"
           pathFunc={roundedStepPathFunc}
           translate={translate}
+          zoom={zoom}
           nodeSize={{ x: 230, y: 280 }}
           separation={{ siblings: 1.05, nonSiblings: 1.2 }}
           renderCustomNodeElement={(rd3tProps) => (
