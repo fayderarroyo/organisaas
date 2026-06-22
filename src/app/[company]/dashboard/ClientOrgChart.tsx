@@ -232,6 +232,9 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
 
   const handleCollapseAll = () => {
     setExpandedNodes(new Set());
+    if (typeof window !== 'undefined') {
+      setTranslate({ x: window.innerWidth / 2, y: 100 });
+    }
     setTreeKey(prev => prev + 1);
   };
 
@@ -244,6 +247,9 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     };
     rawData.forEach(extractIds);
     setExpandedNodes(allIds);
+    if (typeof window !== 'undefined') {
+      setTranslate({ x: window.innerWidth / 2, y: 100 });
+    }
     setTreeKey(prev => prev + 1);
   };
 
