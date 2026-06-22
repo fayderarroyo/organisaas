@@ -2,8 +2,18 @@ export function buildTree(employees: any[]) {
   if (!employees || employees.length === 0) return null
 
   // Mapa para acceso rápido a los nodos
-  const employeeMap = new Map(employees.map(e => [e.id, { ...e, children: [] }]))
+  const employeeMap = new Map(employees.map(e => [e.id, { ...e, children: [], _directReportsCount: 0 }]))
   let root: any = null
+
+  // Contar subalternos directos reales antes de procesar niveles/fantasmas
+  employees.forEach(e => {
+    if (e.parent_id) {
+      const parent = employeeMap.get(e.parent_id);
+      if (parent) {
+        parent._directReportsCount += 1;
+      }
+    }
+  });
 
   // Función auxiliar para extraer el número del nivel (ej: "Nivel 3" -> 3)
   const getLevelNum = (lvlStr: string) => {
@@ -85,6 +95,7 @@ export function buildTree(employees: any[]) {
       fotoUrl: node.photo_url,
       is_invisible_dummy: node.is_invisible_dummy ?? false,
       _hasChildren: node._hasChildren ?? false,
+      _directReportsCount: node._directReportsCount ?? 0,
     },
     id: node.id,
     parentId: node.parent_id,

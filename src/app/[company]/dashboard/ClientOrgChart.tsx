@@ -83,7 +83,7 @@ const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, 
         >
           {hasChildren && !isEditMode && (
             <div className="absolute -top-3 -right-3 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold border-2 border-gray-200 shadow-sm">
-              {/* badge count - leave empty for now */}
+              {nodeDatum.attributes?._directReportsCount}
             </div>
           )}
 
