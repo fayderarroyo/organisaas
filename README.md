@@ -2,6 +2,9 @@
 
 OrganiSaaS es una plataforma B2B (Software as a Service) diseñada para revolucionar la forma en que los departamentos de Recursos Humanos visualizan, gestionan y comparten los organigramas corporativos.
 
+**🌍 URL Principal de Producción:** [https://organisaas.vercel.app/login](https://organisaas.vercel.app/login)
+*(Desde este enlace maestro se realizan todos los accesos, tanto para el Super Administrador como para los Administradores de RRHH de cada empresa).*
+
 ## 🚀 Arquitectura y Roles del Sistema
 
 El sistema está diseñado con una arquitectura de múltiples inquilinos (Multi-Tenant) que separa estrictamente los accesos en tres niveles de seguridad:
