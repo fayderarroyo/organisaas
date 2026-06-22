@@ -51,8 +51,7 @@ export async function createCompany(prevState: any, formData: FormData) {
       logo_url: finalLogoUrl,
       is_public: isPublic,
       viewer_password: viewerPassword || null,
-      hr_email: email,
-      hr_password: password
+      hr_email: email
     })
     .select()
     .single()
