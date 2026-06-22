@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 import { buildTree } from '@/utils/buildTree';
@@ -74,13 +74,19 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
   const isCollapsed = !expandedNodes?.has(nodeDatum.id);
   const isDummy = nodeDatum.id === 'dummy';
 
+  // Card dimensions
+  const cardW = 200;
+  const cardH = 240;
+  const cardX = -100;
+  const cardY = -110;
+
   return (
     <g>
-      <foreignObject x="-110" y="-120" width="220" height="280">
-        <div 
-          onClick={isEditMode ? undefined : () => onToggle(nodeDatum.id, hierarchyPointNode?.x, hierarchyPointNode?.y)}
-          className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 cursor-pointer hover:shadow-xl transition-all duration-300 border-[var(--brand-color)] touch-none select-none"
-          style={{ touchAction: 'none' }}
+      {/* Visual card — pointer-events disabled so touch events bubble to SVG for D3 panning */}
+      <foreignObject x={cardX} y={cardY} width={cardW} height={cardH} style={{ overflow: 'visible', pointerEvents: 'none' }}>
+        <div
+          className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 border-[var(--brand-color)]"
+          style={{ pointerEvents: 'none', userSelect: 'none', width: `${cardW - 24}px` }}
         >
           {hasChildren && !isEditMode && (
             <div className="absolute -top-3 -right-3 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold border-2 border-gray-200 shadow-sm">
@@ -97,7 +103,7 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
               </div>
             )}
           </div>
-          
+
           <div className="w-full">
             <h3 className="text-sm font-bold text-gray-800 leading-tight uppercase">
               {nodeDatum.attributes?.cargo}
@@ -112,36 +118,6 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
             )}
           </div>
 
-          {isEditMode && (
-            <div className="flex gap-2 mt-4 z-20">
-              <button 
-                onClick={(e) => { e.stopPropagation(); onAdd(nodeDatum.id); }}
-                className="w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center hover:bg-green-600 hover:text-white transition-colors border border-green-200"
-                title="Añadir subalterno"
-              >
-                +
-              </button>
-              {!isDummy && (
-                <>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onEdit(nodeDatum); }}
-                    className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center hover:bg-blue-600 hover:text-white transition-colors border border-blue-200 text-xs"
-                    title="Editar"
-                  >
-                    ✎
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDelete(nodeDatum.id); }}
-                    className="w-8 h-8 rounded-full bg-red-100 text-red-700 font-bold flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors border border-red-200 text-xs"
-                    title="Eliminar"
-                  >
-                    🗑
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
           {hasChildren && !isEditMode && (
             <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-gray-800 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -155,6 +131,53 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
           )}
         </div>
       </foreignObject>
+
+      {/* Transparent SVG rect — captures taps/clicks for toggle without blocking D3 drag */}
+      {!isEditMode && (
+        <rect
+          x={cardX}
+          y={cardY}
+          width={cardW}
+          height={cardH}
+          fill="transparent"
+          stroke="none"
+          style={{ cursor: 'pointer' }}
+          onClick={() => onToggle(nodeDatum.id, hierarchyPointNode?.x, hierarchyPointNode?.y)}
+        />
+      )}
+
+      {/* Edit-mode action buttons */}
+      {isEditMode && (
+        <foreignObject x={cardX} y={cardY + cardH - 50} width={cardW} height={60} style={{ overflow: 'visible' }}>
+          <div className="flex gap-2 justify-center" style={{ pointerEvents: 'auto' }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAdd(nodeDatum.id); }}
+              className="w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center hover:bg-green-600 hover:text-white transition-colors border border-green-200"
+              title="Añadir subalterno"
+            >
+              +
+            </button>
+            {!isDummy && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(nodeDatum); }}
+                  className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center hover:bg-blue-600 hover:text-white transition-colors border border-blue-200 text-xs"
+                  title="Editar"
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(nodeDatum.id); }}
+                  className="w-8 h-8 rounded-full bg-red-100 text-red-700 font-bold flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors border border-red-200 text-xs"
+                  title="Eliminar"
+                >
+                  🗑
+                </button>
+              </>
+            )}
+          </div>
+        </foreignObject>
+      )}
     </g>
   );
 };
@@ -178,6 +201,12 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
 
   const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+
+  // Touch pan refs
+  const touchStartRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
+  const isPanningRef = useRef(false);
+  const translateRef = useRef(translate);
+  useEffect(() => { translateRef.current = translate; }, [translate]);
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -214,7 +243,34 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       setZoom(getDefaultZoom());
     }
     fetchEmployees();
-  }, [companyId, supabase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  // ─── Custom touch pan handlers (bypass foreignObject event swallowing) ────
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchStartRef.current = { x: t.clientX, y: t.clientY, tx: translateRef.current.x, ty: translateRef.current.y };
+      isPanningRef.current = false;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length === 1 && touchStartRef.current) {
+      const t = e.touches[0];
+      const dx = t.clientX - touchStartRef.current.x;
+      const dy = t.clientY - touchStartRef.current.y;
+      if (!isPanningRef.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+      isPanningRef.current = true;
+      e.preventDefault();
+      setTranslate({ x: touchStartRef.current.tx + dx, y: touchStartRef.current.ty + dy });
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    touchStartRef.current = null;
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleToggle = (nodeId: string, nodeX?: number, nodeY?: number) => {
     setExpandedNodes(prev => {
@@ -314,7 +370,14 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   }
 
   return (
-    <div className="w-full h-full bg-[#f8fafc] relative overflow-hidden" ref={containerRef}>
+    <div
+      className="w-full h-full bg-[#f8fafc] relative overflow-hidden"
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ touchAction: 'none' }}
+    >
       <div className="absolute top-2 sm:top-4 left-0 w-full px-2 sm:px-4 flex flex-wrap justify-center sm:justify-end gap-2 z-10 pointer-events-none">
          <button 
            onClick={handleExpandAll}
@@ -360,6 +423,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
             />
           )}
           zoomable={true}
+          draggable={false}
           collapsible={false}
           enableLegacyTransitions={true}
           transitionDuration={500}
