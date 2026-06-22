@@ -98,11 +98,11 @@ const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, 
           </div>
           
           <div className="w-full">
-            <h3 className="text-base font-bold text-gray-800 leading-tight">
-              {nodeDatum.name}
-            </h3>
-            <p className="text-xs font-semibold text-gray-400 mt-1 uppercase tracking-widest">
+            <h3 className="text-sm font-bold text-gray-800 leading-tight uppercase">
               {nodeDatum.attributes?.cargo}
+            </h3>
+            <p className="text-xs font-semibold text-gray-500 mt-1">
+              {nodeDatum.name}
             </p>
             {nodeDatum.attributes?.hierarchy_level && (
               <p className="text-[10px] font-bold text-[var(--brand-color)] mt-1 px-2 py-0.5 bg-gray-50 border border-gray-100 rounded-full inline-block">
