@@ -32,33 +32,35 @@ const roundedStepPathFunc = (linkData: any) => {
   `;
 };
 
-// Filtra el árbol ocultando hijos de nodos colapsados.
-// Los nodos fantasmas NUNCA se colapsan: siempre se muestran como transparentes.
-function filterCollapsed(node: any, collapsed: Set<string>): any {
+// Filtra el árbol mostrando SOLO los hijos directos de nodos expandidos.
+// Los nodos fantasmas son transparentes: siempre pasan sus hijos al siguiente nivel.
+function filterExpanded(node: any, expanded: Set<string>): any {
   if (!node) return null;
 
-  // Los nodos fantasmas siempre se pasan con sus hijos (nunca se colapsan)
+  // Los nodos fantasmas son transparentes: siempre muestran sus hijos (el real hijo está abajo)
   if (node.attributes?.is_invisible_dummy) {
     return {
       ...node,
-      children: (node.children || []).map((c: any) => filterCollapsed(c, collapsed))
+      children: (node.children || []).map((c: any) => filterExpanded(c, expanded))
     };
   }
 
-  const isCollapsed = collapsed.has(node.id);
+  const isExpanded = expanded.has(node.id);
 
-  if (isCollapsed) {
-    // Devolver sin hijos
+  if (!isExpanded) {
+    // Nodo cerrado: mostrar el nodo pero sin sus hijos
     return { ...node, children: [] };
   }
 
+  // Nodo abierto: mostrar sus hijos directos (pero los hijos solo muestran sus propios
+  // hijos si también están expandidos — así solo vemos un nivel a la vez)
   return {
     ...node,
-    children: (node.children || []).map((c: any) => filterCollapsed(c, collapsed))
+    children: (node.children || []).map((c: any) => filterExpanded(c, expanded))
   };
 }
 
-const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes }: any) => {
+const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes: expandedNodes }: any) => {
   // Nodos fantasmas: totalmente invisibles
   if (nodeDatum.attributes?.is_invisible_dummy) {
     return (
@@ -69,7 +71,7 @@ const CustomNode = ({ nodeDatum, isEditMode, onAdd, onEdit, onDelete, onToggle, 
   }
 
   const hasChildren = nodeDatum.attributes?._hasChildren;
-  const isCollapsed = collapsedNodes?.has(nodeDatum.id);
+  const isCollapsed = !expandedNodes?.has(nodeDatum.id);
   const isDummy = nodeDatum.id === 'dummy';
 
   return (
@@ -163,8 +165,9 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const [translate, setTranslate] = useState({ x: 500, y: 100 });
   const [treeKey, setTreeKey] = useState(0);
   
-  // Nuestro propio estado de colapso (no usamos el de react-d3-tree)
-  const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+  // Estado de expansión: los nodos en este Set están abiertos (muestran sus hijos directos).
+  // Por defecto vacío = todo cerrado, solo se ve el nodo raíz.
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -206,16 +209,16 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   }, [companyId, supabase]);
 
   const handleToggle = (nodeId: string) => {
-    setCollapsedNodes(prev => {
+    setExpandedNodes(prev => {
       const next = new Set(prev);
       if (next.has(nodeId)) {
-        next.delete(nodeId);
+        next.delete(nodeId); // colapsar
       } else {
-        next.add(nodeId);
+        next.add(nodeId); // expandir
       }
       return next;
     });
-    // Incrementar key para forzar re-render del árbol con los datos filtrados
+    // Re-render del árbol con los datos filtrados actualizados
     setTreeKey(prev => prev + 1);
   };
 
@@ -256,9 +259,9 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     fetchEmployees();
   };
 
-  // Aplicar filtro de colapso a los datos crudos
+  // Aplicar filtro de expansión a los datos crudos
   const displayData = rawData
-    ? rawData.map((root: any) => filterCollapsed(root, collapsedNodes))
+    ? rawData.map((root: any) => filterExpanded(root, expandedNodes))
     : null;
 
   if (loading && !rawData) {
@@ -295,7 +298,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
               onEdit={handleEdit}
               onDelete={handleDelete}
               onToggle={handleToggle}
-              collapsedNodes={collapsedNodes}
+              collapsedNodes={expandedNodes}
             />
           )}
           zoomable={true}
