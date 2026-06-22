@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/utils/supabase/client';
 import { buildTree } from '@/utils/buildTree';
@@ -202,11 +202,15 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
-  // Touch pan refs
-  const touchStartRef = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
-  const isPanningRef = useRef(false);
-  const translateRef = useRef(translate);
-  useEffect(() => { translateRef.current = translate; }, [translate]);
+  // CSS-transform based pan state (independent of D3 internal state)
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [scale, setScale] = useState(1);
+  const touchRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const isDraggingRef = useRef(false);
+  const lastTapRef = useRef<{ id: string; x?: number; y?: number } | null>(null);
+  // Flag to know if we are on mobile
+  const isMobile = () => typeof window !== 'undefined' && window.innerWidth < 768;
 
   const fetchEmployees = async () => {
     setLoading(true);
@@ -237,70 +241,95 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const getExpandZoom = () => typeof window !== 'undefined' && window.innerWidth < 768 ? 0.25 : 0.35;
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && containerRef.current) {
-      const { width } = containerRef.current.getBoundingClientRect();
-      setTranslate({ x: width / 2, y: 100 });
-      setZoom(getDefaultZoom());
+    const mobile = isMobile();
+    const w = typeof window !== 'undefined' ? window.innerWidth : 800;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 600;
+    if (mobile) {
+      // On mobile: Tree stays at fixed center, CSS transform handles pan
+      setTranslate({ x: w / 2, y: 120 });
+      setZoom(1); // zoom=1 because CSS scale handles it
+      setScale(mobile ? 0.5 : 1);
+      setPanX(0);
+      setPanY(0);
+    } else {
+      // Desktop: let D3 handle pan/zoom as before
+      const containerW = containerRef.current?.getBoundingClientRect().width || w;
+      setTranslate({ x: containerW / 2, y: 100 });
+      setZoom(0.8);
     }
     fetchEmployees();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
-  // ─── Custom touch pan handlers (bypass foreignObject event swallowing) ────
-  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+  // Touch handlers for mobile pan (update CSS transform, not D3 state)
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobile()) return;
     if (e.touches.length === 1) {
-      const t = e.touches[0];
-      touchStartRef.current = { x: t.clientX, y: t.clientY, tx: translateRef.current.x, ty: translateRef.current.y };
-      isPanningRef.current = false;
+      isDraggingRef.current = false;
+      touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: panX, py: panY };
     }
-  }, []);
+  };
 
-  const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    if (e.touches.length === 1 && touchStartRef.current) {
-      const t = e.touches[0];
-      const dx = t.clientX - touchStartRef.current.x;
-      const dy = t.clientY - touchStartRef.current.y;
-      if (!isPanningRef.current && Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-      isPanningRef.current = true;
+  const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!isMobile() || !touchRef.current || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - touchRef.current.x;
+    const dy = e.touches[0].clientY - touchRef.current.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      isDraggingRef.current = true;
       e.preventDefault();
-      setTranslate({ x: touchStartRef.current.tx + dx, y: touchStartRef.current.ty + dy });
+      setPanX(touchRef.current.px + dx);
+      setPanY(touchRef.current.py + dy);
     }
-  }, []);
+  };
 
-  const handleTouchEnd = useCallback(() => {
-    touchStartRef.current = null;
-  }, []);
-  // ─────────────────────────────────────────────────────────────────────────
+  const handleTouchEnd = () => {
+    touchRef.current = null;
+  };
 
   const handleToggle = (nodeId: string, nodeX?: number, nodeY?: number) => {
+    const mobile = isMobile();
     setExpandedNodes(prev => {
       const next = new Set(prev);
       const isExpanding = !next.has(nodeId);
-      
       if (isExpanding) {
-        next.add(nodeId); // expandir
-        // Si estamos expandiendo y tenemos coordenadas, centramos el nodo
-        if (nodeX !== undefined && nodeY !== undefined && containerRef.current) {
-          const { width } = containerRef.current.getBoundingClientRect();
-          const targetZoom = getDefaultZoom();
-          setTranslate({ x: width / 2 - (nodeX! * targetZoom), y: 100 - (nodeY! * targetZoom) });
-          setZoom(targetZoom); // Nivel de zoom estándar al navegar
+        next.add(nodeId);
+        // Center the tapped node
+        if (nodeX !== undefined && nodeY !== undefined) {
+          if (mobile) {
+            // On mobile we use CSS transform pan: center the node
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            // nodeX/nodeY are D3 tree coords, translate is center of SVG
+            // The node renders at (translate.x + nodeX*scale, translate.y + nodeY*scale) on screen
+            // We want that to be at (w/2, h/3)
+            const nodeScreenX = translate.x + nodeX * scale;
+            const nodeScreenY = translate.y + nodeY * scale;
+            setPanX(prev => prev + (w / 2 - nodeScreenX));
+            setPanY(prev => prev + (h / 3 - nodeScreenY));
+          } else {
+            const targetZoom = getDefaultZoom();
+            const containerW = containerRef.current?.getBoundingClientRect().width || window.innerWidth;
+            setTranslate({ x: containerW / 2 - (nodeX! * targetZoom), y: 100 - (nodeY! * targetZoom) });
+            setZoom(targetZoom);
+          }
         }
       } else {
-        next.delete(nodeId); // colapsar
+        next.delete(nodeId);
       }
       return next;
     });
-
-    // Re-render del árbol con los datos filtrados actualizados
     setTreeKey(prev => prev + 1);
   };
 
   const handleCollapseAll = () => {
     setExpandedNodes(new Set());
-    if (containerRef.current) {
-      const { width } = containerRef.current.getBoundingClientRect();
-      setTranslate({ x: width / 2, y: 100 });
+    const mobile = isMobile();
+    if (mobile) {
+      setPanX(0);
+      setPanY(0);
+    } else {
+      const containerW = containerRef.current?.getBoundingClientRect().width || window.innerWidth;
+      setTranslate({ x: containerW / 2, y: 100 });
       setZoom(getDefaultZoom());
     }
     setTreeKey(prev => prev + 1);
@@ -315,10 +344,15 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     };
     rawData.forEach(extractIds);
     setExpandedNodes(allIds);
-    if (containerRef.current) {
-      const { width } = containerRef.current.getBoundingClientRect();
-      setTranslate({ x: width / 2, y: 100 });
-      setZoom(getExpandZoom()); // Zoom out más agresivo en móvil
+    const mobile = isMobile();
+    if (mobile) {
+      setPanX(0);
+      setPanY(0);
+      setScale(0.25);
+    } else {
+      const containerW = containerRef.current?.getBoundingClientRect().width || window.innerWidth;
+      setTranslate({ x: containerW / 2, y: 100 });
+      setZoom(getExpandZoom());
     }
     setTreeKey(prev => prev + 1);
   };
@@ -402,32 +436,42 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       </div>
 
       {displayData && (
-        <Tree
-          key={treeKey}
-          data={displayData}
-          orientation="vertical"
-          pathFunc={roundedStepPathFunc}
-          translate={translate}
-          zoom={zoom}
-          nodeSize={{ x: 230, y: 280 }}
-          separation={{ siblings: 1.05, nonSiblings: 1.2 }}
-          renderCustomNodeElement={(rd3tProps) => (
-            <CustomNode 
-              {...rd3tProps} 
-              isEditMode={isEditMode}
-              onAdd={handleAdd}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onToggle={handleToggle}
-              collapsedNodes={expandedNodes}
-            />
-          )}
-          zoomable={true}
-          draggable={false}
-          collapsible={false}
-          enableLegacyTransitions={true}
-          transitionDuration={500}
-        />
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            transform: isMobile() ? `translate(${panX}px, ${panY}px) scale(${scale})` : undefined,
+            transformOrigin: '0 0',
+            willChange: 'transform',
+          }}
+        >
+          <Tree
+            key={treeKey}
+            data={displayData}
+            orientation="vertical"
+            pathFunc={roundedStepPathFunc}
+            translate={translate}
+            zoom={isMobile() ? 1 : zoom}
+            nodeSize={{ x: 230, y: 280 }}
+            separation={{ siblings: 1.05, nonSiblings: 1.2 }}
+            renderCustomNodeElement={(rd3tProps) => (
+              <CustomNode 
+                {...rd3tProps} 
+                isEditMode={isEditMode}
+                onAdd={handleAdd}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onToggle={handleToggle}
+                collapsedNodes={expandedNodes}
+              />
+            )}
+            zoomable={!isMobile()}
+            draggable={!isMobile()}
+            collapsible={false}
+            enableLegacyTransitions={true}
+            transitionDuration={500}
+          />
+        </div>
       )}
 
       <EmployeeModal 
