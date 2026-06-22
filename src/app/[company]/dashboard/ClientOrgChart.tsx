@@ -85,16 +85,11 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
       {/* Visual card — pointer-events disabled so touch events bubble to SVG for D3 panning */}
       <foreignObject x={cardX} y={cardY} width={cardW} height={cardH} style={{ overflow: 'visible', pointerEvents: 'none' }}>
         <div
-          className="relative flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 border-[var(--brand-color)]"
+          className="flex flex-col items-center text-center p-4 mt-3 mx-3 mb-6 bg-white rounded-2xl shadow-md border-2 border-[var(--brand-color)]"
           style={{ pointerEvents: 'none', userSelect: 'none', width: `${cardW - 24}px` }}
         >
-          {hasChildren && !isEditMode && (
-            <div className="absolute -top-3 -right-3 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-gray-500 text-xs font-bold border-2 border-gray-200 shadow-sm">
-              {nodeDatum.attributes?._directReportsCount}
-            </div>
-          )}
-
-          <div className="relative w-20 h-20 rounded-full overflow-hidden border-4 border-gray-100 shadow-sm mb-3">
+          {/* Photo container without position: relative to prevent iOS Safari positioning bugs */}
+          <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-gray-100 shadow-sm mb-3">
             {nodeDatum.attributes?.fotoUrl ? (
               <img src={nodeDatum.attributes.fotoUrl} alt={nodeDatum.name} className="w-full h-full object-cover" />
             ) : (
@@ -117,20 +112,44 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
               </p>
             )}
           </div>
-
-          {hasChildren && !isEditMode && (
-            <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-gray-800 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                {isCollapsed ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12M6 12h12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6" />
-                )}
-              </svg>
-            </div>
-          )}
         </div>
       </foreignObject>
+
+      {/* Direct reports count badge - rendered as native SVG at top-right corner of the card */}
+      {hasChildren && !isEditMode && (
+        <g transform="translate(80, -95)">
+          <circle r="11" fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="2" />
+          <text
+            dy="3.5"
+            textAnchor="middle"
+            fill="#6b7280"
+            fontSize="10"
+            fontWeight="bold"
+          >
+            {nodeDatum.attributes?._directReportsCount}
+          </text>
+        </g>
+      )}
+
+      {/* Expand/Collapse Toggle Button - rendered as native SVG at bottom-center of the card */}
+      {hasChildren && !isEditMode && (
+        <g 
+          transform="translate(0, 125)" 
+          style={{ cursor: 'pointer' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(nodeDatum.id, hierarchyPointNode?.x, hierarchyPointNode?.y);
+          }}
+        >
+          <circle r="12" fill="#1f2937" stroke="white" strokeWidth="2" />
+          <path
+            d={isCollapsed ? "M-4,0 L4,0 M0,-4 L0,4" : "M-4,0 L4,0"}
+            stroke="white"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </g>
+      )}
 
       {/* Transparent SVG rect — captures taps/clicks for toggle without blocking D3 drag */}
       {!isEditMode && (
@@ -146,37 +165,43 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
         />
       )}
 
-      {/* Edit-mode action buttons */}
+      {/* Edit-mode action buttons — rendered as native SVG at the bottom of the card */}
       {isEditMode && (
-        <foreignObject x={cardX} y={cardY + cardH - 50} width={cardW} height={60} style={{ overflow: 'visible' }}>
-          <div className="flex gap-2 justify-center" style={{ pointerEvents: 'auto' }}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onAdd(nodeDatum.id); }}
-              className="w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center hover:bg-green-600 hover:text-white transition-colors border border-green-200"
-              title="Añadir subalterno"
-            >
-              +
-            </button>
-            {!isDummy && (
-              <>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onEdit(nodeDatum); }}
-                  className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center hover:bg-blue-600 hover:text-white transition-colors border border-blue-200 text-xs"
-                  title="Editar"
-                >
-                  ✎
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); onDelete(nodeDatum.id); }}
-                  className="w-8 h-8 rounded-full bg-red-100 text-red-700 font-bold flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors border border-red-200 text-xs"
-                  title="Eliminar"
-                >
-                  🗑
-                </button>
-              </>
-            )}
-          </div>
-        </foreignObject>
+        <g>
+          {/* Add Button */}
+          <g 
+            transform={`translate(${isDummy ? 0 : -40}, 135)`} 
+            style={{ cursor: 'pointer' }}
+            onClick={(e) => { e.stopPropagation(); onAdd(nodeDatum.id); }}
+          >
+            <circle r="15" fill="#d1fae5" stroke="#10b981" strokeWidth="1.5" />
+            <text dy="5.5" textAnchor="middle" fill="#047857" fontSize="16" fontWeight="bold">+</text>
+          </g>
+
+          {!isDummy && (
+            <>
+              {/* Edit Button */}
+              <g 
+                transform="translate(0, 135)" 
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); onEdit(nodeDatum); }}
+              >
+                <circle r="15" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1.5" />
+                <text dy="4" textAnchor="middle" fill="#1d4ed8" fontSize="12">✎</text>
+              </g>
+
+              {/* Delete Button */}
+              <g 
+                transform="translate(40, 135)" 
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); onDelete(nodeDatum.id); }}
+              >
+                <circle r="15" fill="#fee2e2" stroke="#ef4444" strokeWidth="1.5" />
+                <text dy="4.5" textAnchor="middle" fill="#b91c1c" fontSize="12">🗑</text>
+              </g>
+            </>
+          )}
+        </g>
       )}
     </g>
   );
