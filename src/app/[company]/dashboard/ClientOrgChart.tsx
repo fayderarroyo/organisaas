@@ -9,6 +9,18 @@ import EmployeeModal from './EmployeeModal';
 
 const Tree = dynamic(() => import('react-d3-tree'), { ssr: false });
 
+// Forzar expansión recursiva de todos los nodos fantasmas en el árbol
+function forceExpandDummies(node: any): void {
+  if (!node) return;
+  if (node.attributes?.is_invisible_dummy && node.__rd3t?.collapsed) {
+    node.__rd3t.collapsed = false;
+  }
+  if (node.children) node.children.forEach(forceExpandDummies);
+  if (node._children) {
+    node._children.forEach(forceExpandDummies);
+  }
+}
+
 const roundedStepPathFunc = (linkData: any) => {
   const { source, target } = linkData;
   const deltaY = target.y - source.y;
@@ -259,6 +271,11 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
           collapsible={true}
           enableLegacyTransitions={true}
           transitionDuration={500}
+          onUpdate={({ node }: any) => {
+            // Cada vez que se actualiza el árbol, forzamos que los nodos fantasmas
+            // se mantengan siempre expandidos
+            if (node) forceExpandDummies(node);
+          }}
         />
       )}
 

@@ -38,7 +38,9 @@ export function buildTree(employees: any[]) {
               name: 'Invisible', 
               is_invisible_dummy: true, 
               children: [],
-              parent_id: currentParent.id
+              parent_id: currentParent.id,
+              // Forzar siempre expandido para que react-d3-tree nunca lo colapse
+              __rd3t: { collapsed: false, depth: 0, id: dummyId }
             };
             currentParent.children.push(dummyNode);
             currentParent = dummyNode;
@@ -56,20 +58,27 @@ export function buildTree(employees: any[]) {
   })
 
   // Transformar al formato exacto que espera react-d3-tree
-  const formatNode = (node: any): any => ({
-    name: node.name,
-    attributes: {
-      idEmpleado: node.id,
-      cargo: node.position,
-      hierarchy_level: node.hierarchy_level,
-      fotoUrl: node.photo_url,
-      is_invisible_dummy: node.is_invisible_dummy
-    },
-    // Necesario para que d3-tree mantenga referencias originales si queremos editar
-    id: node.id,
-    parentId: node.parent_id,
-    children: node.children.map(formatNode)
-  })
+  const formatNode = (node: any): any => {
+    const formatted: any = {
+      name: node.name,
+      attributes: {
+        idEmpleado: node.id,
+        cargo: node.position,
+        hierarchy_level: node.hierarchy_level,
+        fotoUrl: node.photo_url,
+        is_invisible_dummy: node.is_invisible_dummy
+      },
+      // Necesario para que d3-tree mantenga referencias originales si queremos editar
+      id: node.id,
+      parentId: node.parent_id,
+      children: node.children.map(formatNode)
+    };
+    // Preservar __rd3t si fue definido (para forzar nodos fantasmas siempre expandidos)
+    if (node.__rd3t) {
+      formatted.__rd3t = node.__rd3t;
+    }
+    return formatted;
+  }
 
   return root ? formatNode(root) : null
 }
