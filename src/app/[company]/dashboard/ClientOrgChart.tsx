@@ -163,7 +163,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [translate, setTranslate] = useState({ x: 500, y: 100 });
-  const [zoom, setZoom] = useState(0.8);
+  const [zoom, setZoom] = useState(1);
   const [treeKey, setTreeKey] = useState(0);
   
   // Estado de expansión: los nodos en este Set están abiertos (muestran sus hijos directos).
@@ -202,9 +202,15 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     setLoading(false);
   };
 
+  // Funciones auxiliares para zoom responsivo
+  const getDefaultZoom = () => typeof window !== 'undefined' && window.innerWidth < 768 ? 0.5 : 0.8;
+  const getExpandZoom = () => typeof window !== 'undefined' && window.innerWidth < 768 ? 0.25 : 0.35;
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setTranslate({ x: window.innerWidth / 2, y: 100 });
+    if (typeof window !== 'undefined' && containerRef.current) {
+      const { width } = containerRef.current.getBoundingClientRect();
+      setTranslate({ x: width / 2, y: 100 });
+      setZoom(getDefaultZoom());
     }
     fetchEmployees();
   }, [companyId, supabase]);
@@ -220,7 +226,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
         if (nodeX !== undefined && nodeY !== undefined && containerRef.current) {
           const { width } = containerRef.current.getBoundingClientRect();
           setTranslate({ x: width / 2 - nodeX, y: 100 - nodeY });
-          setZoom(0.8); // Nivel de zoom estándar al navegar
+          setZoom(getDefaultZoom()); // Nivel de zoom estándar al navegar
         }
       } else {
         next.delete(nodeId); // colapsar
@@ -237,7 +243,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     if (containerRef.current) {
       const { width } = containerRef.current.getBoundingClientRect();
       setTranslate({ x: width / 2, y: 100 });
-      setZoom(0.8);
+      setZoom(getDefaultZoom());
     }
     setTreeKey(prev => prev + 1);
   };
@@ -254,7 +260,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
     if (containerRef.current) {
       const { width } = containerRef.current.getBoundingClientRect();
       setTranslate({ x: width / 2, y: 100 });
-      setZoom(0.35); // Hacer un zoom out grande para ver todo el organigrama
+      setZoom(getExpandZoom()); // Zoom out más agresivo en móvil
     }
     setTreeKey(prev => prev + 1);
   };
@@ -306,24 +312,24 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   }
 
   return (
-    <div className="w-full h-full bg-[#f8fafc] relative" ref={containerRef}>
-      <div className="absolute top-4 right-6 flex gap-3 z-10">
+    <div className="w-full h-full bg-[#f8fafc] relative overflow-hidden" ref={containerRef}>
+      <div className="absolute top-2 sm:top-4 left-0 w-full px-2 sm:px-4 flex flex-wrap justify-center sm:justify-end gap-2 z-10 pointer-events-none">
          <button 
            onClick={handleExpandAll}
-           className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-full shadow-md font-bold text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+           className="pointer-events-auto bg-white border border-gray-200 text-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md font-bold text-xs sm:text-sm hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2"
          >
            ↓ Desplegar todo
          </button>
          <button 
            onClick={handleCollapseAll}
-           className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-full shadow-md font-bold text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+           className="pointer-events-auto bg-white border border-gray-200 text-gray-700 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md font-bold text-xs sm:text-sm hover:bg-gray-50 transition-colors flex items-center gap-1 sm:gap-2"
          >
            ↑ Contraer todo
          </button>
          {isAdmin && (
            <button 
              onClick={() => setIsEditMode(!isEditMode)}
-             className={`border px-4 py-2 rounded-full shadow-md font-bold text-sm flex items-center gap-2 transition-colors ${isEditMode ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50'}`}
+             className={`pointer-events-auto border px-3 py-1.5 sm:px-4 sm:py-2 rounded-full shadow-md font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-2 transition-colors ${isEditMode ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-800 border-gray-200 hover:bg-gray-50'}`}
            >
               {isEditMode ? 'Terminar Edición' : '⚙️ Modo Edición'}
            </button>
