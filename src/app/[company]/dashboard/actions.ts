@@ -26,6 +26,7 @@ export async function addEmployee(companyId: string, data: any) {
     company_id: companyId,
     name: data.name,
     position: data.position,
+    hierarchy_level: data.hierarchy_level || null,
     photo_url: data.photo_url || null,
     parent_id: data.parent_id || null
   })
@@ -38,6 +39,7 @@ export async function updateEmployee(id: string, data: any) {
   const { error } = await supabase.from('employees').update({
     name: data.name,
     position: data.position,
+    hierarchy_level: data.hierarchy_level || null,
     photo_url: data.photo_url || null,
     parent_id: data.parent_id || null
   }).eq('id', id)

@@ -17,6 +17,7 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
   const [formData, setFormData] = useState({
     name: '',
     position: '',
+    hierarchy_level: '',
     photo_url: ''
   })
   
@@ -39,6 +40,7 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
       setFormData({
         name: initialData?.name || '',
         position: initialData?.position || '',
+        hierarchy_level: initialData?.hierarchy_level || '',
         photo_url: initialData?.photo_url || ''
       })
       setSelectedFile(null)
@@ -204,6 +206,25 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 outline-none"
                   placeholder="Ej: Director de Ventas"
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">Nivel Jerárquico</label>
+                <select 
+                  required
+                  value={formData.hierarchy_level}
+                  onChange={e => setFormData({...formData, hierarchy_level: e.target.value})}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 outline-none"
+                >
+                  <option value="" disabled>Selecciona un nivel...</option>
+                  <option value="Nivel 0 = Gerente General - CEO">Nivel 0 = Gerente General - CEO</option>
+                  <option value="Nivel 1 = Gerentes">Nivel 1 = Gerentes</option>
+                  <option value="Nivel 2 = Jefes">Nivel 2 = Jefes</option>
+                  <option value="Nivel 3 = Coordinadores">Nivel 3 = Coordinadores</option>
+                  <option value="Nivel 4 = Asistentes">Nivel 4 = Asistentes</option>
+                  <option value="Nivel 5 = Auxiliares">Nivel 5 = Auxiliares</option>
+                  <option value="Nivel 6 = Operativos">Nivel 6 = Operativos</option>
+                </select>
               </div>
 
               <div className="flex flex-col gap-1.5">

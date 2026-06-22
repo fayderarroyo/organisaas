@@ -27,6 +27,7 @@ export function buildTree(employees: any[]) {
     attributes: {
       idEmpleado: node.id,
       cargo: node.position,
+      hierarchy_level: node.hierarchy_level,
       fotoUrl: node.photo_url
     },
     // Necesario para que d3-tree mantenga referencias originales si queremos editar

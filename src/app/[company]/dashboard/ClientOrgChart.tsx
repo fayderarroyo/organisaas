@@ -66,6 +66,11 @@ const CustomNode = ({ nodeDatum, toggleNode, isEditMode, onAdd, onEdit, onDelete
             <p className="text-xs font-semibold text-gray-400 mt-1 uppercase tracking-widest">
               {nodeDatum.attributes?.cargo}
             </p>
+            {nodeDatum.attributes?.hierarchy_level && (
+              <p className="text-[10px] font-bold text-[var(--brand-color)] mt-1 px-2 py-0.5 bg-gray-50 border border-gray-100 rounded-full inline-block">
+                {nodeDatum.attributes.hierarchy_level}
+              </p>
+            )}
           </div>
 
           {isEditMode && (
@@ -173,6 +178,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       id: node.id,
       name: node.name,
       position: node.attributes?.cargo,
+      hierarchy_level: node.attributes?.hierarchy_level,
       photo_url: node.attributes?.fotoUrl,
       parentId: node.parentId
     });
