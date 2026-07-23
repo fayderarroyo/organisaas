@@ -118,13 +118,16 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
       {/* Direct reports count badge - rendered as native SVG at top-right corner of the card */}
       {hasChildren && !isEditMode && (
         <g transform="translate(80, -95)">
-          <circle r="11" fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="2" />
+          <circle r="12" fill="#f3f4f6" stroke="#e5e7eb" strokeWidth="2" />
           <text
-            dy="3.5"
+            dy="1"
+            dominantBaseline="central"
             textAnchor="middle"
             fill="#6b7280"
-            fontSize="10"
+            stroke="none"
+            fontSize="11"
             fontWeight="bold"
+            fontFamily="system-ui, sans-serif"
           >
             {nodeDatum.attributes?._directReportsCount}
           </text>
