@@ -11,14 +11,16 @@ interface EmployeeModalProps {
   onSave: (data: any) => Promise<void>
   initialData?: any
   isEdit?: boolean
+  allEmployees?: any[]
 }
 
-export default function EmployeeModal({ isOpen, onClose, onSave, initialData, isEdit }: EmployeeModalProps) {
+export default function EmployeeModal({ isOpen, onClose, onSave, initialData, isEdit, allEmployees = [] }: EmployeeModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     position: '',
     hierarchy_level: '',
-    photo_url: ''
+    photo_url: '',
+    secondary_parent_id: ''
   })
   
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -41,7 +43,8 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
         name: initialData?.name || '',
         position: initialData?.position || '',
         hierarchy_level: initialData?.hierarchy_level || '',
-        photo_url: initialData?.photo_url || ''
+        photo_url: initialData?.photo_url || '',
+        secondary_parent_id: initialData?.secondary_parent_id || ''
       })
       setSelectedFile(null)
       setCroppedPreviewUrl(null)
@@ -185,10 +188,9 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
               {error && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-100">{error}</div>}
               
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-gray-700">Nombre Completo</label>
+                <label className="text-sm font-semibold text-gray-700">Nombre Completo (Opcional)</label>
                 <input 
                   type="text" 
-                  required
                   value={formData.name}
                   onChange={e => setFormData({...formData, name: e.target.value})}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 outline-none"
@@ -224,6 +226,26 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
                   <option value="Nivel 4">Nivel 4</option>
                   <option value="Nivel 5">Nivel 5</option>
                   <option value="Nivel 6">Nivel 6</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-gray-700">Dependencia Secundaria (Opcional)</label>
+                <select 
+                  value={formData.secondary_parent_id}
+                  onChange={e => setFormData({...formData, secondary_parent_id: e.target.value})}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 outline-none"
+                >
+                  <option value="">Ninguna</option>
+                  {allEmployees.map(emp => {
+                    // Don't show self or dummy nodes
+                    if (emp.id === initialData?.id || emp.id === 'dummy') return null;
+                    return (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.position} {emp.name ? `- ${emp.name}` : ''}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
 

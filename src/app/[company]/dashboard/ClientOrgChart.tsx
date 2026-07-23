@@ -60,7 +60,15 @@ function filterExpanded(node: any, expanded: Set<string>): any {
   };
 }
 
-const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes: expandedNodes }: any) => {
+const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, onDelete, onToggle, collapsedNodes: expandedNodes, nodePositionsRef, linkVersion }: any) => {
+  
+  // Registrar posición del nodo
+  useEffect(() => {
+    if (hierarchyPointNode && nodeDatum.id !== 'dummy' && nodePositionsRef) {
+      nodePositionsRef.current.set(nodeDatum.id, { x: hierarchyPointNode.x, y: hierarchyPointNode.y });
+    }
+  }, [hierarchyPointNode?.x, hierarchyPointNode?.y, nodeDatum.id, nodePositionsRef]);
+
   // Nodos fantasmas: totalmente invisibles
   if (nodeDatum.attributes?.is_invisible_dummy) {
     return (
@@ -80,8 +88,39 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
   const cardX = -100;
   const cardY = -110;
 
+  // Calcular ruta de la línea secundaria (si existe) relativa a este nodo
+  const secondaryParentId = nodeDatum.attributes?.secondary_parent_id;
+  let secondaryPathD = null;
+
+  if (secondaryParentId && nodePositionsRef?.current && hierarchyPointNode) {
+    const targetPos = nodePositionsRef.current.get(secondaryParentId);
+    if (targetPos) {
+      const relX = targetPos.x - hierarchyPointNode.x;
+      const relY = targetPos.y - hierarchyPointNode.y;
+      
+      const sourceY = -110; // Tope de la tarjeta origen (local: 0, -110)
+      const targetY = relY + 130; // Fondo de la tarjeta destino
+      const deltaY = targetY - sourceY;
+      const halfY = sourceY + deltaY / 2;
+
+      secondaryPathD = `M 0,${sourceY} C 0,${halfY} ${relX},${halfY} ${relX},${targetY}`;
+    }
+  }
+
   return (
     <g>
+      {/* Secondary parent line (dotted orange) rendered as native SVG inside D3 node group */}
+      {secondaryPathD && (
+        <path
+          d={secondaryPathD}
+          stroke="#f97316"
+          strokeWidth="3"
+          strokeDasharray="6,6"
+          fill="none"
+          strokeOpacity="0.85"
+          style={{ pointerEvents: 'none' }}
+        />
+      )}
       {/* Visual card — pointer-events disabled so touch events bubble to SVG for D3 panning */}
       <foreignObject x={cardX} y={cardY} width={cardW} height={cardH} style={{ overflow: 'visible', pointerEvents: 'none' }}>
         <div
@@ -103,9 +142,11 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
             <h3 className="text-sm font-bold text-gray-800 leading-tight uppercase">
               {nodeDatum.attributes?.cargo}
             </h3>
-            <p className="text-xs font-semibold text-gray-500 mt-1">
-              {nodeDatum.name}
-            </p>
+            {nodeDatum.name && (
+              <p className="text-xs font-semibold text-gray-500 mt-1">
+                {nodeDatum.name}
+              </p>
+            )}
             {nodeDatum.attributes?.hierarchy_level && (
               <p className="text-[10px] font-bold text-[var(--brand-color)] mt-1 px-2 py-0.5 bg-gray-50 border border-gray-100 rounded-full inline-block">
                 {nodeDatum.attributes.hierarchy_level}
@@ -212,6 +253,7 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
 
 export default function ClientOrgChart({ companyId, isAdmin }: { companyId: string, isAdmin: boolean }) {
   const [rawData, setRawData] = useState<any>(null);
+  const [flatEmployees, setFlatEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [translate, setTranslate] = useState(() => {
@@ -233,6 +275,9 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const [isEditAction, setIsEditAction] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const nodePositionsRef = useRef<Map<string, {x: number, y: number}>>(new Map());
+  const [linkVersion, setLinkVersion] = useState(0);
+
   const supabase = createClient();
 
   const fetchEmployees = async () => {
@@ -243,6 +288,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       .eq('company_id', companyId);
 
     if (!error && employees) {
+      setFlatEmployees(employees);
       if (employees.length === 0) {
         setRawData([{
            id: 'dummy',
@@ -255,6 +301,8 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
         setRawData(treeData ? [treeData] : null);
       }
     }
+    // Limpiar posiciones anteriores al cargar nuevos datos
+    nodePositionsRef.current.clear();
     setTreeKey(prev => prev + 1);
     setLoading(false);
   };
@@ -294,6 +342,8 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       }
       return next;
     });
+    // Forzar actualización de enlaces secundarios
+    setTimeout(() => setLinkVersion(v => v + 1), 50);
     setTreeKey(prev => prev + 1);
   };
 
@@ -304,6 +354,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       setTranslate({ x: width / 2, y: 100 });
       setZoom(getDefaultZoom());
     }
+    setTimeout(() => setLinkVersion(v => v + 1), 50);
     setTreeKey(prev => prev + 1);
   };
 
@@ -321,6 +372,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
       setTranslate({ x: width / 2, y: 100 });
       setZoom(getExpandZoom());
     }
+    setTimeout(() => setLinkVersion(v => v + 1), 50);
     setTreeKey(prev => prev + 1);
   };
 
@@ -365,6 +417,12 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
   const displayData = rawData
     ? rawData.map((root: any) => filterExpanded(root, expandedNodes))
     : null;
+
+  // Trigger link redraw when zoom/translate change from drag events or initial load
+  useEffect(() => {
+    const timer = setTimeout(() => setLinkVersion(v => v + 1), 50);
+    return () => clearTimeout(timer);
+  }, [zoom, translate, treeKey]);
 
   if (loading && !rawData) {
     return <div className="w-full h-full flex items-center justify-center">Cargando jerarquía...</div>;
@@ -418,6 +476,8 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
               onDelete={handleDelete}
               onToggle={handleToggle}
               collapsedNodes={expandedNodes}
+              nodePositionsRef={nodePositionsRef}
+              linkVersion={linkVersion}
             />
           )}
           zoomable={true}
@@ -433,6 +493,7 @@ export default function ClientOrgChart({ companyId, isAdmin }: { companyId: stri
         onSave={handleSaveModal} 
         initialData={modalData}
         isEdit={isEditAction}
+        allEmployees={flatEmployees}
       />
     </div>
   );

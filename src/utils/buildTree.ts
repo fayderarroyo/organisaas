@@ -96,6 +96,7 @@ export function buildTree(employees: any[]) {
       is_invisible_dummy: node.is_invisible_dummy ?? false,
       _hasChildren: node._hasChildren ?? false,
       _directReportsCount: node._directReportsCount ?? 0,
+      secondary_parent_id: node.secondary_parent_id || null,
     },
     id: node.id,
     parentId: node.parent_id,

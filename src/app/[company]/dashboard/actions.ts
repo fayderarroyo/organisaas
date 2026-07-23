@@ -28,7 +28,8 @@ export async function addEmployee(companyId: string, data: any) {
     position: data.position,
     hierarchy_level: data.hierarchy_level || null,
     photo_url: data.photo_url || null,
-    parent_id: data.parent_id || null
+    parent_id: data.parent_id || null,
+    secondary_parent_id: data.secondary_parent_id || null
   })
   if (error) return { error: error.message }
   return { success: true }
@@ -41,7 +42,8 @@ export async function updateEmployee(id: string, data: any) {
     position: data.position,
     hierarchy_level: data.hierarchy_level || null,
     photo_url: data.photo_url || null,
-    parent_id: data.parent_id || null
+    parent_id: data.parent_id || null,
+    secondary_parent_id: data.secondary_parent_id || null
   }).eq('id', id)
   if (error) return { error: error.message }
   return { success: true }
