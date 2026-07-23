@@ -237,15 +237,15 @@ export default function EmployeeModal({ isOpen, onClose, onSave, initialData, is
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-green-500 outline-none"
                 >
                   <option value="">Ninguna</option>
-                  {allEmployees.map(emp => {
-                    // Don't show self or dummy nodes
-                    if (emp.id === initialData?.id || emp.id === 'dummy') return null;
-                    return (
+                  {[...allEmployees]
+                    .filter(emp => emp.id !== initialData?.id && emp.id !== 'dummy')
+                    .sort((a, b) => (a.position || '').localeCompare(b.position || ''))
+                    .map(emp => (
                       <option key={emp.id} value={emp.id}>
                         {emp.position} {emp.name ? `- ${emp.name}` : ''}
                       </option>
-                    )
-                  })}
+                    ))
+                  }
                 </select>
               </div>
 

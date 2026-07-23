@@ -98,12 +98,28 @@ const CustomNode = ({ nodeDatum, hierarchyPointNode, isEditMode, onAdd, onEdit, 
       const relX = targetPos.x - hierarchyPointNode.x;
       const relY = targetPos.y - hierarchyPointNode.y;
       
-      const sourceY = -110; // Tope de la tarjeta origen (local: 0, -110)
-      const targetY = relY + 130; // Fondo de la tarjeta destino
-      const deltaY = targetY - sourceY;
-      const halfY = sourceY + deltaY / 2;
+      let startX = 0;
+      let startY = -110; // Default: top of current card
+      let endX = relX;
+      let endY = relY + 110; // Default: bottom of target card
 
-      secondaryPathD = `M 0,${sourceY} C 0,${halfY} ${relX},${halfY} ${relX},${targetY}`;
+      // Adjust connection points based on relative position
+      if (Math.abs(relY) < 60) {
+        // Target is roughly at the same height: connect side-to-side
+        startX = relX > 0 ? 100 : -100;
+        startY = 0;
+        endX = relX + (relX > 0 ? -100 : 100);
+        endY = relY;
+      } else if (relY > 0) {
+        // Target is below current node: connect bottom of current to top of target
+        startY = 110;
+        endY = relY - 110;
+      }
+
+      const deltaY = endY - startY;
+      const halfY = startY + deltaY / 2;
+
+      secondaryPathD = `M ${startX},${startY} C ${startX},${halfY} ${endX},${halfY} ${endX},${endY}`;
     }
   }
 
